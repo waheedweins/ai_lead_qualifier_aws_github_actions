@@ -37,14 +37,36 @@ jobs:
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-    - name: Trigger AWS App Runner Deployment
+    - name: Create or Update AWS App Runner Service
       run: |
-        SERVICE_ARN=$(aws apprunner list-services --query "ServiceSummaryList[?ServiceName=='${{ secrets.APP_RUNNER_SERVICE_NAME }}'].ServiceArn" --output text)
+        # 1. Check if the App Runner service already exists
+        SERVICE_ARN=$(aws apprunner list-services --region ${{ secrets.AWS_REGION }} --query "ServiceSummaryList[?ServiceName=='${{ secrets.APP_RUNNER_SERVICE_NAME }}'].ServiceArn" --output text)
         
+        IMAGE_URI="489205147073.dkr.ecr.eu-north-1.amazonaws.com/ai-lead-qualifier_aws_github_actions:latest"
+
         if [ -n "$SERVICE_ARN" ] && [ "$SERVICE_ARN" != "None" ]; then
-          echo "Triggering live deployment update for service: $SERVICE_ARN"
-          aws apprunner start-deployment --service-arn $SERVICE_ARN
+          # --- CASE A: Service Exists -> Trigger an update deployment ---
+          echo "Service found. Triggering live deployment update..."
+          aws apprunner start-deployment --region ${{ secrets.AWS_REGION }} --service-arn $SERVICE_ARN
         else
-          echo "Deployment Failure: App Runner Service Name target not found on AWS."
-          exit 1
+          # --- CASE B: Service Does Not Exist -> Create it from scratch ---
+          echo "Service not found. Automatically creating a fresh App Runner instance..."
+          
+          aws apprunner create-service \
+            --region ${{ secrets.AWS_REGION }} \
+            --service-name ${{ secrets.APP_RUNNER_SERVICE_NAME }} \
+            --source-configuration "{
+              \"ImageRepository\": {
+                \"ImageIdentifier\": \"$IMAGE_URI\",
+                \"ImageConfiguration\": {
+                  \"Port\": \"8000\",
+                  \"RuntimeEnvironmentVariables\": [
+                    {\"Name\": \"OPENAI_API_KEY\", \"Value\": \"${{ secrets.OPENAI_API_KEY }}\"}
+                  ]
+                },
+                \"ImageRepositoryType\": \"ECR\"
+              },
+              \"AutoDeploymentsEnabled\": false
+            }" \
+            --instance-configuration "Cpu=1 vCPU,Memory=2 GB"
         fi
