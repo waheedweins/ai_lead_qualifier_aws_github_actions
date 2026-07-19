@@ -5,8 +5,10 @@ on:
     branches:
       - main
 
+# REQUIRED: Added id-token permissions for secure AWS OIDC role assumption
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   deploy:
@@ -17,11 +19,11 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
+    # Updated to securely use your new IAM Role ARN secret
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
         aws-region: ${{ secrets.AWS_REGION }}
 
     - name: Login to Amazon ECR
