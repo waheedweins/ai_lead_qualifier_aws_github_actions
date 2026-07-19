@@ -19,11 +19,12 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    # Securely authenticates with AWS using your IAM Role ARN via OIDC
+    # Securely authenticates with AWS using the fresh execution role and explicit audience pinning
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        role-to-assume: arn:aws:iam::489205147073:role/github-actions-lead-qualifier-role
+        role-to-assume: arn:aws:iam::489205147073:role/gha-lead-qualifier-execution-role
+        audience: sts.amazonaws.com
         aws-region: ${{ secrets.AWS_REGION }}
 
     - name: Login to Amazon ECR
