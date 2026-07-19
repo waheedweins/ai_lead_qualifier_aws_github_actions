@@ -5,7 +5,7 @@ on:
     branches:
       - main
 
-# REQUIRED: Added id-token permissions for secure AWS OIDC role assumption
+# REQUIRED: Enables secure OIDC token generation for AWS authentication
 permissions:
   contents: read
   id-token: write
@@ -19,11 +19,11 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    # Updated to securely use your new IAM Role ARN secret
+    # Securely authenticates with AWS using your IAM Role ARN via OIDC
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+        role-to-assume: arn:aws:iam::489205147073:role/github-actions-lead-qualifier-role
         aws-region: ${{ secrets.AWS_REGION }}
 
     - name: Login to Amazon ECR
@@ -44,7 +44,7 @@ jobs:
         # 1. Check if the App Runner service already exists
         SERVICE_ARN=$(aws apprunner list-services --region ${{ secrets.AWS_REGION }} --query "ServiceSummaryList[?ServiceName=='${{ secrets.APP_RUNNER_SERVICE_NAME }}'].ServiceArn" --output text)
         
-        IMAGE_URI="489205147073.dkr.ecr.eu-north-1.amazonaws.com/ai-lead-qualifier_aws_github_actions:latest"
+        IMAGE_URI="489205147073.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest"
 
         if [ -n "$SERVICE_ARN" ] && [ "$SERVICE_ARN" != "None" ]; then
           # --- CASE A: Service Exists -> Trigger an update deployment ---
