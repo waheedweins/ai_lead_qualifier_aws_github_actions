@@ -13,7 +13,7 @@ def scrape(
     query: str,
     background_tasks: BackgroundTasks,
     source: str = "google_maps",
-    token_data: dict = Depends(auth_required),
+    # token_data: dict = Depends(auth_required),  # Commented out to disable Auth0 temporarily
 ):
     """
     Start a background scraping job.
@@ -35,7 +35,10 @@ def scrape(
 
 
 @router.post("/process")
-def process_all(background_tasks: BackgroundTasks, token_data: dict = Depends(auth_required)):
+def process_all(
+    background_tasks: BackgroundTasks, 
+    # token_data: dict = Depends(auth_required)  # Commented out to disable Auth0 temporarily
+):
     """
     Manually trigger scoring + outreach for all unprocessed leads.
     🔒 SECURED: Requires a valid Auth0 Bearer Token.
@@ -51,7 +54,7 @@ def run_full_pipeline(
     query: str,
     background_tasks: BackgroundTasks,
     source: str = "all",
-    token_data: dict = Depends(auth_required),
+    # token_data: dict = Depends(auth_required),  # Commented out to disable Auth0 temporarily
 ):
     """
     One-shot: scrape + score + outreach in a single call.
