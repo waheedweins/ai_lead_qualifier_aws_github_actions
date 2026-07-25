@@ -6,7 +6,7 @@ from langgraph.graph import StateGraph, END
 
 logger = logging.getLogger("lead-engine.services.langgraph_engine")
 
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-3.5-flash"
 GEMINI_URL = (
     f"https://generativelanguage.googleapis.com/v1beta/models/"
     f"{GEMINI_MODEL}:generateContent"
