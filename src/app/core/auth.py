@@ -20,27 +20,30 @@ class Auth0JWTBearer:
         return self._jwk_client
 
     async def __call__(self, credentials: HTTPAuthorizationCredentials = Security(HTTPBearer())):
-        # Safe structural bypass check if configuration properties are empty
-        if not settings.AUTH0_DOMAIN or not settings.AUTH0_AUDIENCE:
-            return {"info": "Auth0 security skipped - variables missing from runtime workspace environment."}
+        # BYPASS AUTH0: Return a dummy user payload directly
+        return {"sub": "bypassed-user", "gty": "client-credentials"}
 
-        token = credentials.credentials
-        try:
-            signing_key = self.jwk_client.get_signing_key_from_jwt(token).key
-            payload = jwt.decode(
-                token,
-                signing_key,
-                algorithms=["RS256"],
-                audience=settings.AUTH0_AUDIENCE,
-                issuer=f"https://{settings.AUTH0_DOMAIN}/"
-            )
-            return payload
-
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Invalid or expired security token credentials: {str(e)}"
-            )
+        # --- Original validation code (currently bypassed) ---
+        # if not settings.AUTH0_DOMAIN or not settings.AUTH0_AUDIENCE:
+        #     return {"info": "Auth0 security skipped - variables missing from runtime workspace environment."}
+        # 
+        # token = credentials.credentials
+        # try:
+        #     signing_key = self.jwk_client.get_signing_key_from_jwt(token).key
+        #     payload = jwt.decode(
+        #         token,
+        #         signing_key,
+        #         algorithms=["RS256"],
+        #         audience=settings.AUTH0_AUDIENCE,
+        #         issuer=f"https://{settings.AUTH0_DOMAIN}/"
+        #     )
+        #     return payload
+        # 
+        # except Exception as e:
+        #     raise HTTPException(
+        #         status_code=status.HTTP_401_UNAUTHORIZED,
+        #         detail=f"Invalid or expired security token credentials: {str(e)}"
+        #     )
 
 
 # Global authorization dependency initialization hook
