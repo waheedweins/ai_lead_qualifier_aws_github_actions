@@ -5,22 +5,18 @@ from src.app.utils.retry import retry
 
 logger = logging.getLogger("lead-engine.scrapers.apollo")
 
-APOLLO_BASE = "https://api.apollo.io/api/v1"
-
 
 class ApolloScraper:
     """
     Uses Apollo.io API to:
     1. Search people by company name / domain to find decision-maker emails
     2. Enrich existing leads with verified contact info
-
-    Free tier: 50 credits/month (enough for testing).
-    Paid tiers unlock bulk search.
-    Get your key at: https://app.apollo.io/#/settings/integrations/api
     """
 
     def __init__(self):
         self.api_key = settings.APOLLO_API_KEY
+        # Fallback to official v1 base URL if not explicitly defined in settings
+        self.base_url = getattr(settings, "APOLLO_BASE_URL", "https://api.apollo.io/v1")
         self.enabled = bool(self.api_key)
         if not self.enabled:
             logger.info("Apollo: APOLLO_API_KEY not set — Apollo enrichment disabled.")
@@ -29,7 +25,7 @@ class ApolloScraper:
         return {
             "Content-Type": "application/json",
             "Cache-Control": "no-cache",
-            "Authorization": f"Bearer {self.api_key}",
+            "X-Api-Key": self.api_key,
         }
 
     def search_people(
@@ -40,7 +36,6 @@ class ApolloScraper:
     ) -> list[dict]:
         """
         Search Apollo for decision-makers at a company.
-        Returns list of people with name, email, phone, title.
         """
         if not self.enabled:
             return []
@@ -56,7 +51,7 @@ class ApolloScraper:
 
         def _call():
             r = requests.post(
-                f"{APOLLO_BASE}/mixed_people/search",
+                f"{self.base_url}/mixed_people/search",
                 headers=self._headers(),
                 json=payload,
                 timeout=15,
@@ -70,7 +65,6 @@ class ApolloScraper:
             results = []
             for p in people:
                 email = p.get("email") or ""
-                # Skip generic/invalid emails
                 if not email or any(x in email for x in ["@example", "@test", "null"]):
                     continue
                 results.append({
@@ -90,15 +84,14 @@ class ApolloScraper:
 
     def enrich_lead(self, email: str) -> dict:
         """
-        Enrich a known email address with Apollo data (phone, title, company info).
-        Returns enriched dict or empty dict if not found.
+        Enrich a known email address with Apollo data.
         """
         if not self.enabled or not email:
             return {}
 
         def _call():
             r = requests.post(
-                f"{APOLLO_BASE}/people/match",
+                f"{self.base_url}/people/match",
                 headers=self._headers(),
                 json={"email": email, "reveal_personal_emails": False},
                 timeout=15,
@@ -126,7 +119,6 @@ class ApolloScraper:
     def search_companies(self, industry: str, location: str, limit: int = 20) -> list[dict]:
         """
         Search Apollo for companies in an industry+location.
-        Useful as an alternative to Google Maps scraping.
         """
         if not self.enabled:
             return []
@@ -140,7 +132,7 @@ class ApolloScraper:
 
         def _call():
             r = requests.post(
-                f"{APOLLO_BASE}/mixed_companies/search",
+                f"{self.base_url}/mixed_companies/search",
                 headers=self._headers(),
                 json=payload,
                 timeout=15,
