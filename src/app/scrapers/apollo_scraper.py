@@ -5,7 +5,7 @@ from src.app.utils.retry import retry
 
 logger = logging.getLogger("lead-engine.scrapers.apollo")
 
-APOLLO_BASE = "https://api.apollo.io/v1"
+APOLLO_BASE = "https://api.apollo.io/api/v1"
 
 
 class ApolloScraper:
@@ -29,7 +29,7 @@ class ApolloScraper:
         return {
             "Content-Type": "application/json",
             "Cache-Control": "no-cache",
-            "X-Api-Key": self.api_key,
+            "Authorization": f"Bearer {self.api_key}",
         }
 
     def search_people(
