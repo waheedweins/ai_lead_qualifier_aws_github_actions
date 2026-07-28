@@ -6,7 +6,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: waheedweins/ai_lead_qualifier_aws_githuba_actions # Replace with your exact GitHub username and repository name in lowercase
+  IMAGE_NAME: waheedweins/ai_lead_qualifier_aws_github_actions # Replace with your exact GitHub username and repository name in lowercase
 
 jobs:
   build-and-push:
