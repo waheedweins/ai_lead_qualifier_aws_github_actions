@@ -1,3 +1,4 @@
+import time
 import logging
 import requests
 from typing import TypedDict
@@ -22,7 +23,6 @@ class OutreachState(TypedDict):
 # ── Node 1: Choose channel ────────────────────────────────────────────────────
 def choose_channel(state: OutreachState) -> OutreachState:
     lead = state["lead"]
-    # Prefer WhatsApp if phone available and not a placeholder
     has_real_phone = bool(lead.get("phone"))
     state["channel"] = "whatsapp" if has_real_phone else "email"
     logger.info(f"Outreach channel for {lead.get('email')}: {state['channel']}")
@@ -39,7 +39,6 @@ def generate_message(state: OutreachState) -> OutreachState:
     category = lead.get("title", "your business")
     ai_reason = lead.get("ai_reason", "")
 
-    # Channel-specific length guidance
     length_guide = (
         "Keep it under 160 characters. Friendly, informal tone."
         if channel == "whatsapp"
@@ -91,6 +90,10 @@ Write ONLY the message body. No subject line. No extra explanation."""
 
     state["message"] = message
     state["subject"] = subject
+    
+    # Increased safety delay (6 seconds) to strictly respect Free-tier Gemini RPM limits
+    logger.info("Pausing 6s to respect free-tier Gemini rate limits...")
+    time.sleep(6.0)
     return state
 
 
@@ -102,12 +105,23 @@ def send_outreach(state: OutreachState) -> OutreachState:
 
     if channel == "whatsapp":
         from src.app.services.whatsapp_service import WhatsAppService
-        try:
-            svc = WhatsAppService()
-            svc.send_message(phone=lead["phone"], message=message)
-        except Exception as e:
-            logger.error(f"WhatsApp failed for {lead.get('phone')}: {e}")
-            # Fallback to email if WhatsApp fails and email exists
+        success = False
+        attempts = 3
+        
+        for attempt in range(1, attempts + 1):
+            try:
+                svc = WhatsAppService()
+                svc.send_message(phone=lead["phone"], message=message)
+                logger.info(f"WhatsApp successfully sent to {lead['phone']}")
+                success = True
+                break
+            except Exception as e:
+                logger.warning(f"Attempt {attempt}/{attempts} failed for WhatsApp to {lead.get('phone')}: {e}")
+                if attempt < attempts:
+                    time.sleep(2.0)
+
+        if not success:
+            logger.error(f"WhatsApp permanently failed for {lead.get('phone')}. Falling back to email if available.")
             if lead.get("email") and "placeholder" not in lead.get("email", ""):
                 logger.info(f"Falling back to email for {lead.get('email')}")
                 _send_email(lead, state["subject"], message)
