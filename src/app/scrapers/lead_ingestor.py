@@ -33,12 +33,16 @@ def ingest_leads(db: Session, scraped_data: list, source: str = "google_maps") -
     """
     Ingest a list of raw scraped records into the database.
     Skips duplicates and placeholder-only contacts.
+    
+    RESTRICTION: Capped at a maximum of 2 records for testing quotas and safety limits.
     Returns count of new leads inserted.
     """
     service = LeadService(db)
     inserted = 0
 
-    logger.info(f"Ingesting {len(scraped_data)} raw records from '{source}'")
+    # RESTRICTION: Limit incoming scraped data to max 2 items for test mode
+    scraped_data = scraped_data[:2]
+    logger.info(f"Ingesting {len(scraped_data)} raw records from '{source}' (Test Mode: max 2)")
 
     for idx, item in enumerate(scraped_data):
         # ── Extract fields ─────────────────────────────────────────────────
@@ -98,5 +102,5 @@ def ingest_leads(db: Session, scraped_data: list, source: str = "google_maps") -
             logger.error(f"Failed to insert '{business_name}': {e}")
             continue
 
-    logger.info(f"Ingestion complete: {inserted}/{len(scraped_data)} new leads from '{source}'")
+    logger.info(f"Ingestion complete: {inserted}/{len(scraped_data)} new leads from '{source}' (Test Mode)")
     return inserted
