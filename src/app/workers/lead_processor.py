@@ -55,7 +55,11 @@ def process_lead(lead: dict) -> dict:
 
 def process_leads_batch() -> int:
     """
-    Pulls all 'new' leads from DB, scores and actions them.
+    Pulls 'new' leads from DB, scores and actions them.
+    
+    RESTRICTION: Batch size is capped at a maximum of 2 leads for testing 
+    to prevent exceeding Gemini Free tier rate limits.
+    
     Updates status to 'processed' or 'failed'.
     Returns count of successfully processed leads.
     """
@@ -69,7 +73,10 @@ def process_leads_batch() -> int:
 
     try:
         new_leads = db.query(Lead).filter(Lead.status == "new").all()
-        logger.info(f"Batch processing {len(new_leads)} new leads")
+        
+        # RESTRICTION: Limit batch processing to max 2 leads for test mode
+        new_leads = new_leads[:2]
+        logger.info(f"Batch processing {len(new_leads)} new leads (Test Mode: max 2)")
 
         for lead_row in new_leads:
             lead_dict = {
@@ -109,5 +116,5 @@ def process_leads_batch() -> int:
     finally:
         db.close()
 
-    logger.info(f"Batch complete: {processed} leads processed")
+    logger.info(f"Batch complete: {processed} leads processed (Test Mode)")
     return processed
