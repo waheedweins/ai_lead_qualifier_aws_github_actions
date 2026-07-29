@@ -9,8 +9,9 @@ logger = logging.getLogger("lead-engine.scrapers.apollo")
 class ApolloScraper:
     """
     Uses Apollo.io API optionally to:
-    1. Search people by company name / domain to find decision-maker emails
+    1. Search people by company name / domain to find decision-maker emails (restricted to max 2 for testing)
     2. Enrich existing leads with verified contact info
+    3. Search companies (restricted to max 2 for testing)
     """
 
     def __init__(self):
@@ -31,13 +32,16 @@ class ApolloScraper:
         self,
         company_name: str,
         titles: list[str] | None = None,
-        limit: int = 5,
+        limit: int = 2,  # Restricted to max 2 results for testing
     ) -> list[dict]:
         """
-        Search Apollo for decision-makers at a company if enabled.
+        Search Apollo for decision-makers at a company if enabled (restricted to max 2).
         """
         if not self.enabled:
             return []
+
+        # Enforce max 2 results for testing quotas
+        limit = min(limit, 2)
 
         titles = titles or ["owner", "CEO", "founder", "director", "manager"]
         payload = {
@@ -63,7 +67,7 @@ class ApolloScraper:
 
         try:
             data = retry(_call, retries=2, delay=2.0)
-            people = data.get("people", [])
+            people = data.get("people", [])[:2]  # Enforce hard limit of 2 in code
             results = []
             for p in people:
                 email = p.get("email") or ""
@@ -78,7 +82,7 @@ class ApolloScraper:
                     "linkedin": p.get("linkedin_url", ""),
                     "source": "apollo",
                 })
-            logger.info(f"Apollo found {len(results)} contacts for '{company_name}'")
+            logger.info(f"Apollo found {len(results)} contacts for '{company_name}' (Test Mode: max 2)")
             return results
         except Exception as e:
             logger.error(f"Apollo people search failed for '{company_name}': {e}")
@@ -121,12 +125,15 @@ class ApolloScraper:
             logger.error(f"Apollo enrichment failed for '{email}': {e}")
             return {}
 
-    def search_companies(self, industry: str, location: str, limit: int = 20) -> list[dict]:
+    def search_companies(self, industry: str, location: str, limit: int = 2) -> list[dict]:
         """
-        Search Apollo for companies in an industry+location if enabled.
+        Search Apollo for companies in an industry+location if enabled (restricted to max 2).
         """
         if not self.enabled:
             return []
+
+        # Enforce max 2 results for testing quotas
+        limit = min(limit, 2)
 
         payload = {
             "q_organization_keyword_tags": [industry],
@@ -150,7 +157,7 @@ class ApolloScraper:
 
         try:
             data = retry(_call, retries=2, delay=2.0)
-            companies = data.get("organizations", [])
+            companies = data.get("organizations", [])[:2]  # Enforce hard limit of 2 in code
             results = []
             for c in companies:
                 results.append({
@@ -162,7 +169,7 @@ class ApolloScraper:
                     "title": c.get("industry", industry),
                     "source": "apollo_company",
                 })
-            logger.info(f"Apollo company search: {len(results)} results for '{industry}' in '{location}'")
+            logger.info(f"Apollo company search: {len(results)} results for '{industry}' in '{location}' (Test Mode: max 2)")
             return results
         except Exception as e:
             logger.error(f"Apollo company search failed: {e}")
