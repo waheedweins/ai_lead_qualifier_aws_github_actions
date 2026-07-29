@@ -9,14 +9,20 @@ logger = logging.getLogger("lead-engine.scrapers.apollo")
 class ApolloScraper:
     """
     Uses Apollo.io API optionally to:
-    1. Search people by company name / domain to find decision-maker emails (restricted to max 2 for testing)
+    1. Search people by company name / domain to find decision-maker emails (Restricted to max 2 for testing)
     2. Enrich existing leads with verified contact info
-    3. Search companies (restricted to max 2 for testing)
+    3. Search companies (Restricted to max 2 for testing)
+    
+    NOTE FOR README/SUMMARY:
+    - Apollo integration is entirely optional and will gracefully bypass 403 plan restrictions.
+    - Both Apollo results and downstream LLM operations are capped at a maximum of 2 items
+      to safely stay within free-tier rate limits and test quotas.
     """
 
     def __init__(self):
         self.api_key = getattr(settings, "APOLLO_API_KEY", None)
         self.base_url = getattr(settings, "APOLLO_BASE_URL", "https://api.apollo.io/v1")
+        # Apollo is optional: if key is missing, it logs info and disables safely without crashing
         self.enabled = bool(self.api_key)
         if not self.enabled:
             logger.info("Apollo: APOLLO_API_KEY not set — Apollo enrichment is optional and disabled.")
@@ -32,7 +38,7 @@ class ApolloScraper:
         self,
         company_name: str,
         titles: list[str] | None = None,
-        limit: int = 2,  # Restricted to max 2 results for testing
+        limit: int = 2,  # RESTRICTION: Capped at max 2 results for testing quotas
     ) -> list[dict]:
         """
         Search Apollo for decision-makers at a company if enabled (restricted to max 2).
@@ -40,7 +46,7 @@ class ApolloScraper:
         if not self.enabled:
             return []
 
-        # Enforce max 2 results for testing quotas
+        # Enforce max 2 results restriction for test runs
         limit = min(limit, 2)
 
         titles = titles or ["owner", "CEO", "founder", "director", "manager"]
@@ -59,6 +65,7 @@ class ApolloScraper:
                 json=payload,
                 timeout=15,
             )
+            # Gracefully handle 403 Forbidden plan restrictions as an optional service
             if r.status_code == 403:
                 logger.warning("Apollo API returned 403 Forbidden on people search. Bypassing Apollo optionally.")
                 return {"people": []}
@@ -67,7 +74,7 @@ class ApolloScraper:
 
         try:
             data = retry(_call, retries=2, delay=2.0)
-            people = data.get("people", [])[:2]  # Enforce hard limit of 2 in code
+            people = data.get("people", [])[:2]  # RESTRICTION: Hard slice to max 2 items
             results = []
             for p in people:
                 email = p.get("email") or ""
@@ -102,6 +109,7 @@ class ApolloScraper:
                 json={"email": email, "reveal_personal_emails": False},
                 timeout=15,
             )
+            # Gracefully handle 403 Forbidden plan restrictions as an optional service
             if r.status_code == 403:
                 logger.warning("Apollo API returned 403 Forbidden on lead enrichment. Bypassing Apollo optionally.")
                 return {}
@@ -132,7 +140,7 @@ class ApolloScraper:
         if not self.enabled:
             return []
 
-        # Enforce max 2 results for testing quotas
+        # Enforce max 2 results restriction for test runs
         limit = min(limit, 2)
 
         payload = {
@@ -149,6 +157,7 @@ class ApolloScraper:
                 json=payload,
                 timeout=15,
             )
+            # Gracefully handle 403 Forbidden plan restrictions as an optional service
             if r.status_code == 403:
                 logger.warning("Apollo API returned 403 Forbidden on company search. Bypassing Apollo optionally.")
                 return {"organizations": []}
@@ -157,7 +166,7 @@ class ApolloScraper:
 
         try:
             data = retry(_call, retries=2, delay=2.0)
-            companies = data.get("organizations", [])[:2]  # Enforce hard limit of 2 in code
+            companies = data.get("organizations", [])[:2]  # RESTRICTION: Hard slice to max 2 items
             results = []
             for c in companies:
                 results.append({
