@@ -14,6 +14,7 @@ def run_scraping_job(query: str, source: str = "google_maps") -> int:
       - "apollo"       — Apollo.io company search (B2B contacts)
       - "all"          — both sources combined
 
+    RESTRICTION: Google Maps results are capped at a maximum of 2 records for testing.
     Returns total new leads inserted.
     """
     logger.info(f"Scraping job started: query='{query}' source='{source}'")
@@ -27,9 +28,11 @@ def run_scraping_job(query: str, source: str = "google_maps") -> int:
             scraper = GoogleMapsScraper()
             data = scraper.scrape(search_query=query, max_results=30)
             if data:
+                # RESTRICTION: Limit Google Maps scraped data to max 2 items for test mode
+                data = data[:2]
                 inserted = ingest_leads(db=db, scraped_data=data, source="google_maps")
                 total_inserted += inserted
-                logger.info(f"Google Maps: {inserted} new leads for '{query}'")
+                logger.info(f"Google Maps: {inserted} new leads for '{query}' (Test Mode: max 2)")
 
         if source in ("apollo", "all"):
             apollo = ApolloScraper()
@@ -39,11 +42,12 @@ def run_scraping_job(query: str, source: str = "google_maps") -> int:
                 industry = parts[0] if len(parts) > 1 else query
                 location = parts[1] if len(parts) > 1 else "Pakistan"
 
+                # Apollo scraper already enforces a max 2 limit internally for tests
                 data = apollo.search_companies(industry=industry, location=location, limit=20)
                 if data:
                     inserted = ingest_leads(db=db, scraped_data=data, source="apollo")
                     total_inserted += inserted
-                    logger.info(f"Apollo: {inserted} new leads for '{query}'")
+                    logger.info(f"Apollo: {inserted} new leads for '{query}' (Test Mode: max 2)")
             else:
                 logger.info("Apollo skipped — APOLLO_API_KEY not configured")
 
