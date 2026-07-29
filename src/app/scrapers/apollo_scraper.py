@@ -8,18 +8,17 @@ logger = logging.getLogger("lead-engine.scrapers.apollo")
 
 class ApolloScraper:
     """
-    Uses Apollo.io API to:
+    Uses Apollo.io API optionally to:
     1. Search people by company name / domain to find decision-maker emails
     2. Enrich existing leads with verified contact info
     """
 
     def __init__(self):
-        self.api_key = settings.APOLLO_API_KEY
-        # Fallback to official v1 base URL if not explicitly defined in settings
+        self.api_key = getattr(settings, "APOLLO_API_KEY", None)
         self.base_url = getattr(settings, "APOLLO_BASE_URL", "https://api.apollo.io/v1")
         self.enabled = bool(self.api_key)
         if not self.enabled:
-            logger.info("Apollo: APOLLO_API_KEY not set — Apollo enrichment disabled.")
+            logger.info("Apollo: APOLLO_API_KEY not set — Apollo enrichment is optional and disabled.")
 
     def _headers(self) -> dict:
         return {
@@ -35,7 +34,7 @@ class ApolloScraper:
         limit: int = 5,
     ) -> list[dict]:
         """
-        Search Apollo for decision-makers at a company.
+        Search Apollo for decision-makers at a company if enabled.
         """
         if not self.enabled:
             return []
@@ -56,6 +55,9 @@ class ApolloScraper:
                 json=payload,
                 timeout=15,
             )
+            if r.status_code == 403:
+                logger.warning("Apollo API returned 403 Forbidden on people search. Bypassing Apollo optionally.")
+                return {"people": []}
             r.raise_for_status()
             return r.json()
 
@@ -84,7 +86,7 @@ class ApolloScraper:
 
     def enrich_lead(self, email: str) -> dict:
         """
-        Enrich a known email address with Apollo data.
+        Enrich a known email address with Apollo data if enabled.
         """
         if not self.enabled or not email:
             return {}
@@ -96,6 +98,9 @@ class ApolloScraper:
                 json={"email": email, "reveal_personal_emails": False},
                 timeout=15,
             )
+            if r.status_code == 403:
+                logger.warning("Apollo API returned 403 Forbidden on lead enrichment. Bypassing Apollo optionally.")
+                return {}
             r.raise_for_status()
             return r.json()
 
@@ -118,7 +123,7 @@ class ApolloScraper:
 
     def search_companies(self, industry: str, location: str, limit: int = 20) -> list[dict]:
         """
-        Search Apollo for companies in an industry+location.
+        Search Apollo for companies in an industry+location if enabled.
         """
         if not self.enabled:
             return []
@@ -137,6 +142,9 @@ class ApolloScraper:
                 json=payload,
                 timeout=15,
             )
+            if r.status_code == 403:
+                logger.warning("Apollo API returned 403 Forbidden on company search. Bypassing Apollo optionally.")
+                return {"organizations": []}
             r.raise_for_status()
             return r.json()
 
